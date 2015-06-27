@@ -104,6 +104,7 @@ static struct cpu_stats {
 	.total_cpus = NR_CPUS
 };
 
+<<<<<<< HEAD
 struct down_lock {
 	unsigned int locked;
 	struct delayed_work lock_rem;
@@ -126,11 +127,19 @@ static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 static bool io_is_busy;
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
+=======
+static uint32_t limited_max_freq = UINT_MAX;
+static uint32_t limited_min_freq;
+
+static int msm_hotplug_cpufreq_callback(struct notifier_block *nfb,
+					unsigned long event, void *data)
+>>>>>>> parent of e4ceb1d... cpufreq: add new routine cpufreq_verify_within_cpu_limits()
 {
 	u64 idle_time;
 	u64 cur_wall_time;
 	u64 busy_time;
 
+<<<<<<< HEAD
 	cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());
 
 	busy_time  = kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
@@ -204,6 +213,13 @@ static int update_average_load(unsigned int cpu)
 			(wall_time + pcpu->window_size);
 
 		pcpu->window_size += wall_time;
+=======
+	switch (event) {
+	case CPUFREQ_INCOMPATIBLE:
+		cpufreq_verify_within_limits(policy, limited_min_freq,
+					     limited_max_freq);
+		break;
+>>>>>>> parent of e4ceb1d... cpufreq: add new routine cpufreq_verify_within_cpu_limits()
 	}
 
 	return 0;

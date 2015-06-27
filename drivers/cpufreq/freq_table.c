@@ -63,7 +63,8 @@ int cpufreq_frequency_table_verify(struct cpufreq_policy *policy,
 	if (!cpu_online(policy->cpu))
 		return -EINVAL;
 
-	cpufreq_verify_within_cpu_limits(policy);
+	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
+				     policy->cpuinfo.max_freq);
 
 	for (; freq = table[i].frequency, freq != CPUFREQ_TABLE_END; i++) {
 		if (freq == CPUFREQ_ENTRY_INVALID)
@@ -82,7 +83,6 @@ int cpufreq_frequency_table_verify(struct cpufreq_policy *policy,
 
 		cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
 				policy->cpuinfo.max_freq);
-	}
 
 	pr_debug("verification lead to (%u - %u kHz) for cpu %u\n",
 				policy->min, policy->max, policy->cpu);
