@@ -45,10 +45,6 @@
 #define INIT_UDELAY		200
 #define MAX_UDELAY		2000
 
-
-/* Number of jiffies for a full thermal cycle */
-#define TH_HZ			20
-
 struct clk_pair {
 	const char *name;
 	uint map;
@@ -184,8 +180,9 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags))
 		if (pwr->ebi1_clk)
 			clk_set_rate(pwr->ebi1_clk, pwrlevel->bus_freq);
-}
-EXPORT_SYMBOL(kgsl_pwrctrl_pwrlevel_change);
+
+	if (test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags) ||
+		(device->state == KGSL_STATE_NAP)) {
 
 		/*
 		 * On some platforms, instability is caused on
