@@ -700,6 +700,20 @@ config MSM7X00A_IDLE_SLEEP_MODE
 	default 3 if MSM7X00A_IDLE_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT
 	default 4 if MSM7X00A_IDLE_SLEEP_WAIT_FOR_INTERRUPT
 
+config MSM_CPU_VOLTAGE_CONTROL
+	bool "Userspace CPU Voltage Control"
+	default y
+	help
+	  This enables userspace CPU Voltage Control.
+
+config FORCE_FAST_CHARGE
+	bool "Force fast charging (AC/USB) by Yank555.lu"
+	default n
+	help
+	  A simple sysfs interface to force adapters that
+	  are detected as USB to charge as AC (1A/h) or to set
+	  custom charging currents for AC and USB.
+
 config MSM7X00A_IDLE_SLEEP_MIN_TIME
 	int "Minimum idle time before sleep"
 	default 20000000
