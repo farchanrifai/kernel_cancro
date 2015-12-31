@@ -59,7 +59,7 @@
 #include <asm/setup.h>
 #include <asm/memory.h>
 #include <linux/memblock.h>
-#define XIAOMI_PERSISTENT_RAM_SIZE	(SZ_1M)
+#define XIAOMI_PERSISTENT_RAM_SIZE	(SZ_1M *2)
 #endif
 #include "platsmp.h"
 
