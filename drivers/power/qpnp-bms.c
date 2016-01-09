@@ -488,7 +488,7 @@ static int adjust_vbatt_reading(struct qpnp_bms_chip *chip, int reading_uv)
 
 	/* don't adjust if not calibrated */
 	if (chip->vadc_v0625 == 0 || chip->vadc_v1250 == 0) {
-		pr_debug("No cal yet return %d\n",
+		pr_info("No cal yet return %d\n",
 				VBATT_MUL_FACTOR * reading_uv);
 		return VBATT_MUL_FACTOR * reading_uv;
 	}
@@ -519,12 +519,12 @@ static inline int convert_vbatt_raw_to_uv(struct qpnp_bms_chip *chip,
 	int rc;
 
 	uv = vadc_reading_to_uv(reading);
-	pr_debug("%u raw converted into %lld uv\n", reading, uv);
+	pr_info("%u raw converted into %lld uv\n", reading, uv);
 	uv = adjust_vbatt_reading(chip, uv);
-	pr_debug("adjusted into %lld uv\n", uv);
+	pr_info("adjusted into %lld uv\n", uv);
 	rc = qpnp_vbat_sns_comp_result(chip->vadc_dev, &uv, is_pon_ocv);
 	if (rc)
-		pr_debug("could not compensate vbatt\n");
+		pr_info("could not compensate vbatt\n");
 	pr_debug("compensated into %lld uv\n", uv);
 	return uv;
 }
@@ -725,7 +725,7 @@ static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
 {
 	int rc;
 
-	pr_debug("prev_last_good_ocv_raw = %d, last_good_ocv_raw = %d\n",
+	pr_info("prev_last_good_ocv_raw = %d, last_good_ocv_raw = %d\n",
 			chip->prev_last_good_ocv_raw,
 			raw->last_good_ocv_raw);
 	rc = calib_vadc(chip);
@@ -737,7 +737,7 @@ static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
 	chip->last_ocv_uv = raw->last_good_ocv_uv;
 	chip->last_ocv_temp = batt_temp;
 	chip->software_cc_uah = 0;
-	pr_debug("last_good_ocv_uv = %d\n", raw->last_good_ocv_uv);
+	pr_info("last_good_ocv_uv = %d\n", raw->last_good_ocv_uv);
 }
 
 #define CLEAR_CC			BIT(7)
@@ -996,8 +996,6 @@ static int estimate_ocv(struct qpnp_bms_chip *chip, int batt_temp)
 	ocv_est_uv -= dropped_uv;
 	pr_info("estimated pon ocv = %d i%d v%d r%d d%d\n",
 		ocv_est_uv, ibat_ua, vbat_uv, rbatt_mohm, dropped_uv);
-	pr_debug("estimated pon ocv = %d, vbat_uv = %d ibat_ua = %d rbatt_mohm = %d\n",
-			ocv_est_uv, vbat_uv, ibat_ua, rbatt_mohm);
 	return ocv_est_uv;
 }
 
@@ -1035,7 +1033,7 @@ static void backup_instant_ocv(struct qpnp_bms_chip *chip, int instant_ocv_mv)
 	else
 		reg = (instant_ocv_mv - 3400) / 4;
 
-	pr_debug("backup instant ocv %d reg %x\n", instant_ocv_mv, reg);
+	pr_info("backup instant ocv %d reg %x\n", instant_ocv_mv, reg);
 
 	qpnp_write_wrapper(chip, &reg, chip->base + INST_OCV_STORAGE_REG, 1);
 }
@@ -1157,10 +1155,17 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 	mutex_unlock(&chip->bms_output_lock);
 
 	if (chip->prev_last_good_ocv_raw == OCV_RAW_UNINITIALIZED) {
+		int instant_ocv_mv;
 		convert_and_store_ocv(chip, raw, batt_temp, true);
 		pr_info("PON_OCV_UV = %d, cc = %llx\n",
 				chip->last_ocv_uv, raw->cc);
 		warm_reset = qpnp_pon_is_warm_reset();
+		instant_ocv_mv = read_saved_instant_ocv(chip);
+			pr_info("instant ocv %d\n", instant_ocv_mv);
+
+			if (instant_ocv_mv != INST_OCV_INVALID)
+				chip->last_ocv_uv = instant_ocv_mv * 1000;
+		pr_info ("last_good_ocv = %d, warm_reset = %d\n", raw->last_good_ocv_uv, warm_reset);
 		if (raw->last_good_ocv_uv < MIN_OCV_UV
 				|| warm_reset > 0) {
 			int instant_ocv_mv;
@@ -1214,9 +1219,9 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw)
 		chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
 
-	pr_debug("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
+	pr_info("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
 			raw->last_good_ocv_raw, raw->last_good_ocv_uv);
-	pr_debug("cc_raw= 0x%llx\n", raw->cc);
+	pr_info("cc_raw= 0x%llx\n", raw->cc);
 	return 0;
 
 param_err:
@@ -1232,7 +1237,7 @@ static int calculate_pc(struct qpnp_bms_chip *chip, int ocv_uv,
 
 	pc = interpolate_pc(chip->pc_temp_ocv_lut,
 			batt_temp, ocv_uv / 1000);
-	pr_debug("pc = %u %% for ocv = %d uv batt_temp = %d\n",
+	pr_info("pc = %u %% for ocv = %d uv batt_temp = %d\n",
 					pc, ocv_uv, batt_temp);
 	/* Multiply the initial FCC value by the scale factor. */
 	return pc;
@@ -1263,7 +1268,7 @@ static int calculate_ocv_charge(struct qpnp_bms_chip *chip,
 
 	ocv_uv = raw->last_good_ocv_uv;
 	pc = calculate_pc(chip, ocv_uv, chip->last_ocv_temp);
-	pr_debug("ocv_uv = %d pc = %d\n", ocv_uv, pc);
+	pr_info("ocv_uv = %d pc = %d\n", ocv_uv, pc);
 	return (fcc_uah * pc) / 100;
 }
 
@@ -1406,7 +1411,7 @@ static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
 
 	pc_unusable = calculate_pc(chip, unusable_uv, batt_temp);
 	uuc_uah = (params->fcc_uah * pc_unusable) / 100;
-	pr_debug("For uuc_iavg_ma = %d, unusable_rbatt = %d unusable_uv = %d unusable_pc = %d rbatt_pc = %d uuc = %d\n",
+	pr_info("For uuc_iavg_ma = %d, unusable_rbatt = %d unusable_uv = %d unusable_pc = %d rbatt_pc = %d uuc = %d\n",
 					uuc_iavg_ma,
 					uuc_rbatt_mohm, unusable_uv,
 					pc_unusable, i, uuc_uah);
@@ -1693,7 +1698,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 	params->ocv_charge_uah = calculate_ocv_charge(
 						chip, raw,
 						params->fcc_uah);
-	pr_debug("ocv_charge_uah = %uuAh\n", params->ocv_charge_uah);
+	pr_info("ocv_charge_uah = %uuAh\n", params->ocv_charge_uah);
 
 	/* calculate cc micro_volt_hour */
 	params->cc_uah = calculate_cc(chip, raw->cc, CC, RESET);
@@ -2439,7 +2444,9 @@ static int calculate_raw_soc(struct qpnp_bms_chip *chip,
 	remaining_usable_charge_uah = params->ocv_charge_uah
 					- params->cc_uah
 					- params->uuc_uah;
-	pr_debug("RUC = %duAh\n", remaining_usable_charge_uah);
+	pr_info("ocv_charge_uah = %d, cc_uah = %d, uuc_uah = %d\n", params->ocv_charge_uah,
+		       	params->cc_uah, params->uuc_uah);
+	pr_info("RUC = %duAh\n", remaining_usable_charge_uah);
 
 	soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
 				(params->fcc_uah - params->uuc_uah));
@@ -2668,7 +2675,7 @@ static int recalculate_raw_soc(struct qpnp_bms_chip *chip)
 						LR_MUX1_BATT_THERM, rc);
 			soc = chip->calculated_soc;
 		} else {
-			pr_debug("batt_temp phy = %lld meas = 0x%llx\n",
+			pr_info("batt_temp phy = %lld meas = 0x%llx\n",
 							result.physical,
 							result.measurement);
 			batt_temp = (int)result.physical;
@@ -2685,7 +2692,7 @@ static int recalculate_raw_soc(struct qpnp_bms_chip *chip)
 				pr_debug("battery gone\n");
 				soc = 0;
 			} else if (params.fcc_uah - params.uuc_uah <= 0) {
-				pr_debug("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
+				pr_info("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
 							params.fcc_uah,
 							params.uuc_uah);
 				soc = 0;
