@@ -118,13 +118,13 @@
 
 		qcom,use-external-rsense-x3;
 		qcom,use-external-rsense-x5;
-		qcom,ignore-shutdown-soc;
-		qcom,r-sense-uohm = <10000>;
+		qcom,r-sense-uohm = <10400>;
 		qcom,v-cutoff-uv = <3400000>;
-		qcom,max-voltage-uv = <4200000>;
+		qcom,max-voltage-uv = <4350000>;
 		qcom,max-voltage-uv-x5 = <4400000>;
 		qcom,r-conn-mohm = <0>;
-		qcom,shutdown-soc-valid-limit = <2>;
+		qcom,ignore-shutdown-soc;
+		qcom,shutdown-soc-valid-limit = <100>;
 		qcom,adjust-soc-low-threshold = <15>;
 		qcom,ocv-voltage-high-threshold-uv = <3750000>;
 		qcom,ocv-voltage-low-threshold-uv = <3650000>;
@@ -858,6 +858,18 @@
 			qcom,hw-settle-time = <0>;
 			qcom,fast-avg-setup = <0>;
 		};
+	
+		chan@1 {
+			label = "external_rsense";
+			reg = <1>;
+			qcom,decimation = <0>;
+			qcom,pre-div-channel-scaling = <1>;
+			qcom,calibration-type = "absolute";
+			qcom,scale-function = <0>;
+			qcom,hw-settle-time = <0>;
+			qcom,fast-avg-setup = <0>;
+		};
+
 	};
 
 	pm8941_adc_tm: qcom,vadc@3400 {
