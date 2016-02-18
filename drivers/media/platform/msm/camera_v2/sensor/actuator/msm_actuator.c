@@ -118,7 +118,19 @@ static void msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 	uint16_t value = 0;
 	uint32_t size = a_ctrl->reg_tbl_size, i = 0;
 	struct msm_camera_i2c_reg_array *i2c_tbl = a_ctrl->i2c_reg_tbl;
+	uint16_t device_pos = 0;
 	CDBG("Enter\n");
+
+if(a_ctrl->i2c_client.cci_client->sid == 0x72) {
+		/* change pos from 0~1024 based to -32767~32767 */
+		device_pos = (512 - next_lens_position) * 64;
+		pr_info("lyn pos:%d -> %d, %u", next_lens_position, device_pos, device_pos);
+		i2c_tbl[a_ctrl->i2c_tbl_index].reg_addr = 0xA0;
+		i2c_tbl[a_ctrl->i2c_tbl_index].reg_data = device_pos;
+		i2c_tbl[a_ctrl->i2c_tbl_index].delay = delay;
+		a_ctrl->i2c_tbl_index++;
+		a_ctrl->i2c_data_type = MSM_CAMERA_I2C_WORD_DATA;
+} else {
 	for (i = 0; i < size; i++) {
 		/* check that the index into i2c_tbl cannot grow larger that
 		the allocated size of i2c_tbl */
