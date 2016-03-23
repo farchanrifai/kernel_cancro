@@ -136,11 +136,7 @@ config DEFAULT_IOSCHED
 	default "noop" if DEFAULT_NOOP
 	default "sio" if DEFAULT_SIO
 	default "fiops" if DEFAULT_FIOPS
-<<<<<<< HEAD
-=======
-	default "bfq" if DEFAULT_BFQ
 	default "zen" if DEFAULT_ZEN
->>>>>>> c0ded8f... block: Add Zen scheduler
 
 endmenu
 
