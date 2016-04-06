@@ -42,5 +42,10 @@ obj-$(CONFIG_FB_MSM_QPIC) += mdss-qpic.o
 obj-$(CONFIG_FB_MSM_QPIC_ILI_QVGA_PANEL) += qpic_panel_ili_qvga.o
 
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_fb.o
+obj-$(CONFIG_FB_MSM_MDSS) += lcd_notify.o
 
 obj-$(CONFIG_FB_MSM_MDSS_DSI_CTRL_STATUS) += mdss_dsi_status.o
+ccflags-y += -D__CHECK_ENDIAN__
+CFLAGS_mdss_mdp.o := -I$(src)
+
+obj-$(CONFIG_FB_MSM_MDSS_KCAL_CTRL) += mdss_mdp_kcal_ctrl.o

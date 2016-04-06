@@ -28,6 +28,10 @@
 #include "audio_acdb.h"
 #include "q6voice.h"
 
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+#include <linux/input/wake_helpers.h>
+bool var_in_phone_call = false;
+#endif
 
 #define TIMEOUT_MS 500
 
@@ -3950,8 +3954,15 @@ static int voice_cvs_start_record(struct voice_data *v, uint32_t rec_mode)
 		cvs_start_record.hdr.token = 0;
 		cvs_start_record.hdr.opcode = VSS_IRECORD_CMD_START;
 
+		// In order to enable stereo recording,
+		// i.e. TX on the left and RX on the right
+		// the respective ports need to be explicitly specified:
+		// INCALL_RECORD_TX => 0x8003
+		// INCALL_RECORD_RX => 0x8004
+		/*cvs_start_record.rec_mode.port_id =
+					VSS_IRECORD_PORT_ID_DEFAULT; */
 		cvs_start_record.rec_mode.port_id =
-					VSS_IRECORD_PORT_ID_DEFAULT;
+					VSS_IRECORD_PORT_ID_TX_RX;
 		if (rec_mode == VOC_REC_UPLINK) {
 			cvs_start_record.rec_mode.rx_tap_point =
 					VSS_IRECORD_TAP_POINT_NONE;
@@ -3974,6 +3985,9 @@ static int voice_cvs_start_record(struct voice_data *v, uint32_t rec_mode)
 			ret = -EINVAL;
 			goto fail;
 		}
+
+		// request stereo recording
+		cvs_start_record.rec_mode.mode = VSS_IRECORD_MODE_TX_RX_STEREO;
 
 		v->cvs_state = CMD_STATUS_FAIL;
 
@@ -4862,6 +4876,10 @@ int voc_end_voice_call(uint32_t session_id)
 	if (common.ec_ref_ext)
 		voc_set_ext_ec_ref(AFE_PORT_INVALID, false);
 
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+	var_in_phone_call = false;
+	pr_info("%s: set wake_helper var_in_phone_call: %s\n", __func__, (var_in_phone_call ? "true" : "false"));
+#endif
 	mutex_unlock(&v->lock);
 	return ret;
 }
@@ -5177,6 +5195,10 @@ int voc_start_voice_call(uint32_t session_id)
 		ret = -EINVAL;
 		goto fail;
 	}
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+	var_in_phone_call = true;
+	pr_info("%s: set wake_helper var_in_phone_call: %s\n", __func__, (var_in_phone_call ? "true" : "false"));
+#endif
 fail:
 	mutex_unlock(&v->lock);
 	return ret;
