@@ -68,8 +68,7 @@
 /* Extra bms registers */
 #define SOC_STORAGE_REG			0xB0
 #define IAVG_STORAGE_REG		0xB1
-//#define BMS_FCC_COUNT			0xB2
-#define INST_OCV_STORAGE_REG		0xB2 /* INSTANT OCV, last_ocv + cc */
+#define BMS_FCC_COUNT			0xB2
 #define BMS_FCC_BASE_REG		0xB3 /* FCC updates - 0xB3 to 0xB7 */
 #define BMS_CHGCYL_BASE_REG		0xB8 /* FCC chgcyl - 0xB8 to 0xBC */
 #define CHARGE_INCREASE_STORAGE		0xBD
@@ -86,7 +85,6 @@
 #define IAVG_STEP_SIZE_MA		10
 #define IAVG_INVALID			0xFF
 #define SOC_INVALID			0x7E
-#define INST_OCV_INVALID		0xFF
 
 #define IAVG_SAMPLES 16
 
@@ -978,7 +976,6 @@ static int get_rbatt(struct qpnp_bms_chip *chip,
 static int estimate_ocv(struct qpnp_bms_chip *chip, int batt_temp)
 {
 	int ibat_ua, vbat_uv, ocv_est_uv, rbatt_mohm, rc;
-	int dropped_uv = 0;
 
 	rbatt_mohm = get_rbatt(chip, DEFAULT_RBATT_SOC, batt_temp);
 	rc = get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
@@ -987,56 +984,12 @@ static int estimate_ocv(struct qpnp_bms_chip *chip, int batt_temp)
 		return rc;
 	}
 
-	/* Drop some voltage level for compensation if the current is large */
-	if (ibat_ua > 500 * 1000)
-		dropped_uv = linear_interpolate(0, 500,
-			80, 2000, ibat_ua / 1000) * 1000;
-
 	ocv_est_uv = vbat_uv + (ibat_ua * rbatt_mohm) / 1000;
-	ocv_est_uv -= dropped_uv;
-	pr_info("estimated pon ocv = %d i%d v%d r%d d%d\n",
-		ocv_est_uv, ibat_ua, vbat_uv, rbatt_mohm, dropped_uv);
+	pr_info("estimated pon ocv = %d i%d v%d r%d",
+		ocv_est_uv, ibat_ua, vbat_uv, rbatt_mohm);
 	return ocv_est_uv;
 }
 
-static int read_saved_instant_ocv(struct qpnp_bms_chip *chip)
-{
-	u8 reg;
-	int rc, instant_ocv_mv;
-
-	rc = qpnp_read_wrapper(chip, &reg,
-		chip->base + INST_OCV_STORAGE_REG, 1);
-	if (rc || reg == INST_OCV_INVALID) {
-		pr_err("failed to read addr = %d %d\n",
-			chip->base + INST_OCV_STORAGE_REG, rc);
-		return INST_OCV_INVALID;
-	} else {
-		instant_ocv_mv = 3400 + reg * 4;
-		if (instant_ocv_mv > chip->max_voltage_uv / 1000)
-			instant_ocv_mv = chip->max_voltage_uv / 1000;
-
-		pr_info("read instant ocv %d reg %x\n", instant_ocv_mv, reg);
-
-		return instant_ocv_mv;
-	}
-}
-
-static void backup_instant_ocv(struct qpnp_bms_chip *chip, int instant_ocv_mv)
-{
-	u8 reg;
-
-	if (instant_ocv_mv > chip->max_voltage_uv / 1000)
-		instant_ocv_mv = chip->max_voltage_uv / 1000;
-
-	if (instant_ocv_mv < 3400)
-		reg = 0xFF;
-	else
-		reg = (instant_ocv_mv - 3400) / 4;
-
-	pr_info("backup instant ocv %d reg %x\n", instant_ocv_mv, reg);
-
-	qpnp_write_wrapper(chip, &reg, chip->base + INST_OCV_STORAGE_REG, 1);
-}
 
 #define MIN_IAVG_MA 250
 static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
@@ -1155,30 +1108,15 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 	mutex_unlock(&chip->bms_output_lock);
 
 	if (chip->prev_last_good_ocv_raw == OCV_RAW_UNINITIALIZED) {
-		int instant_ocv_mv;
 		convert_and_store_ocv(chip, raw, batt_temp, true);
 		pr_info("PON_OCV_UV = %d, cc = %llx\n",
 				chip->last_ocv_uv, raw->cc);
-		warm_reset = qpnp_pon_is_warm_reset();
-		instant_ocv_mv = read_saved_instant_ocv(chip);
-			pr_info("instant ocv %d\n", instant_ocv_mv);
-
-			if (instant_ocv_mv != INST_OCV_INVALID)
-				chip->last_ocv_uv = instant_ocv_mv * 1000;
+		warm_reset = 0; //qpnp_pon_is_warm_reset(); Device is incorrectly reporting reboot to recovery as warm reset
 		pr_info ("last_good_ocv = %d, warm_reset = %d\n", raw->last_good_ocv_uv, warm_reset);
 		if (raw->last_good_ocv_uv < MIN_OCV_UV
 				|| warm_reset > 0) {
-			int instant_ocv_mv;
-
 			pr_info("OCV is stale or bad, estimating new OCV.\n");
-
-			instant_ocv_mv = read_saved_instant_ocv(chip);
-			pr_info("instant ocv %d\n", instant_ocv_mv);
-
-			if (instant_ocv_mv != INST_OCV_INVALID)
-				chip->last_ocv_uv = instant_ocv_mv * 1000;
-			else
-				chip->last_ocv_uv = estimate_ocv(chip, batt_temp);
+			chip->last_ocv_uv = estimate_ocv(chip, batt_temp);
 
 			raw->last_good_ocv_uv = chip->last_ocv_uv;
 			reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
@@ -1438,7 +1376,6 @@ static int adjust_uuc(struct qpnp_bms_chip *chip,
 		/* Limit the maximum unusable percent to 50% */
 		new_pc_unusable = min(new_pc_unusable, 50);
 		chip->prev_pc_unusable = new_pc_unusable;
-		new_uuc_uah = (params->fcc_uah * chip->prev_pc_unusable) / 100;
 		return new_uuc_uah;
 	}
 
@@ -2292,7 +2229,6 @@ skip_limits:
 	/* calculate the soc based on this new ocv */
 	pc_new = calculate_pc(chip, chip->last_ocv_uv, chip->last_ocv_temp);
 	rc_new_uah = (params->fcc_uah * pc_new) / 100;
-	params->ocv_charge_uah = rc_new_uah;
 	soc_new = (rc_new_uah - params->cc_uah - params->uuc_uah)*100
 					/ (params->fcc_uah - params->uuc_uah);
 
@@ -2496,10 +2432,9 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 					struct raw_soc_params *raw,
 					int batt_temp)
 {
-	struct soc_params params, tmp_params;
+	struct soc_params params;
 	int soc, previous_soc, shutdown_soc, new_calculated_soc;
 	int remaining_usable_charge_uah;
-	int instant_uah, instant_soc, instant_ocv_uv;
 
 	calculate_soc_params(chip, raw, &params, batt_temp);
 	if (!is_battery_present(chip)) {
@@ -2556,15 +2491,6 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 		new_calculated_soc = adjust_soc(chip, &params, soc, batt_temp);
 	}
 
-	/* backup instant ocv */
-	tmp_params = params;
-	tmp_params.cc_uah = 0;
-	tmp_params.uuc_uah = 0;
-	instant_uah = params.ocv_charge_uah - params.cc_uah;
-	instant_soc = DIV_ROUND_CLOSEST(instant_uah * 100, params.fcc_uah);
-	instant_ocv_uv = find_ocv_for_pc(chip, batt_temp,
-		find_pc_for_soc(chip, &tmp_params, instant_soc));
-	backup_instant_ocv(chip, instant_ocv_uv / 1000);
 
 	/* always clamp soc due to BMS hw/sw immaturities */
 	new_calculated_soc = clamp_soc_based_on_voltage(chip,
