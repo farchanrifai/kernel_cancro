@@ -1160,7 +1160,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		convert_and_store_ocv(chip, raw, batt_temp, true);
 		pr_info("PON_OCV_UV = %d, cc = %llx\n",
 				chip->last_ocv_uv, raw->cc);
-		warm_reset = 0 ;//qpnp_pon_is_warm_reset();
+		warm_reset = qpnp_pon_is_warm_reset();
 		if (raw->last_good_ocv_uv < MIN_OCV_UV
 				|| warm_reset > 0) {
 			int instant_ocv_mv;
