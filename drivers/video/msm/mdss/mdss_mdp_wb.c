@@ -565,7 +565,7 @@ static int mdss_mdp_wb_dequeue(struct msm_fb_data_type *mfd,
 {
 	struct mdss_mdp_wb *wb = mfd_to_wb(mfd);
 	struct mdss_mdp_wb_data *node = NULL;
-	//struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int ret;
 
 	if (!wb) {
@@ -573,10 +573,10 @@ static int mdss_mdp_wb_dequeue(struct msm_fb_data_type *mfd,
 		return -ENODEV;
 	}
 
-	//if (!ctl) {
-	//	pr_err("unable to dequeue, ctl is not initialized\n");
-	//	return -ENODEV;
-	//}
+	if (!ctl) {
+		pr_err("unable to dequeue, ctl is not initialized\n");
+		return -ENODEV;
+	}
 
 	ret = wait_event_interruptible(wb->wait_q, is_buffer_ready(wb));
 	if (ret) {
@@ -587,7 +587,7 @@ static int mdss_mdp_wb_dequeue(struct msm_fb_data_type *mfd,
 	mutex_lock(&wb->lock);
 	if (wb->state == WB_STOPING) {
 		pr_debug("wfd stopped\n");
-	//	mdss_mdp_display_wait4comp(ctl);
+		mdss_mdp_display_wait4comp(ctl);
 		wb->state = WB_STOP;
 		ret = -ENOBUFS;
 	} else if (!list_empty(&wb->busy_queue)) {
