@@ -5,6 +5,5 @@ cp arch/arm/boot/dt.img ~/anykernel/AnyKernel2/
 cd ~/anykernel/AnyKernel2
 DATE=$(date +"%m-%d-%y")
 rm Z*
-zip -r9 ZeurionXCAF--$DATE.zip * -x README ZeurionXCAF-$DATE.zip
-sudo cp Z* /var/www/html/caf/
-sudo chown -R www-data:www-data /var/www/html/caf/
+zip -r9 ZeurionX-V2.3-miui-$DATE.zip * -x README ZeurionX-V2.3-miui-$DATE.zip
+sudo cp Z* ~/public_html/
