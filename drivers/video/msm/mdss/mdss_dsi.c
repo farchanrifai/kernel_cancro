@@ -702,13 +702,17 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	pinfo = &pdata->panel_info;
 	mipi = &pdata->panel_info.mipi;
 
+	ret = mdss_dsi_panel_power_on(pdata, 1);
+	if (ret) {
+		pr_err("%s:Panel power on failed. rc=%d\n", __func__, ret);
+		return ret;
+	}
+
 	if (pdata->panel_info.panel_power_on) {
 		pr_warn("%s:%d Panel already on.\n", __func__, __LINE__);
 		ctrl_pdata->dsi_pipe_ready = true;
 		return 0;
 	}
-
-	
 
 	if (!ctrl_pdata->panel_sleepwrmod || poweron_firsttime) {
 		ret = mdss_dsi_panel_pon(pdata, 1);
@@ -717,12 +721,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 				__func__, ret);
 			return ret;
 		}
-		ret = mdss_dsi_panel_power_on(pdata, 1);
-		if (ret) {
-			pr_err("%s:Panel power on failed. rc=%d\n", __func__, ret);
-			return ret;
-		}
-		
+			
 	}
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 1);
 	if (ret) {

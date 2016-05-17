@@ -329,6 +329,11 @@ config ISL9519_CHARGER
 	  of its high current rating.
 	  Choose Y if you are compiling for Qualcomm's msm8x60 surf/ffa board.
 
+config ISL98607
+	tristate "isl98607"
+	depends on I2C
+	default y
+
 config SMB137B_CHARGER
 	tristate "smb137b charger"
 	default n
