@@ -32,6 +32,8 @@ modules.builtin
 *.lzo
 *.patch
 *.gcno
+build.log
+gas.sh
 
 #
 # Top-level generic files
