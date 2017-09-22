@@ -4343,8 +4343,7 @@ qpnp_chg_reduce_power_stage(struct qpnp_chg_chip *chip)
 #else
 	bool usb_ma_above_wall =
 		(qpnp_chg_usb_iusbmax_get(chip) > USB_WALL_THRESHOLD_MA);
-	bool target_usb_ma_above_wall =
-		(chip->prev_usb_max_ma > USB_WALL_THRESHOLD_MA);
+#endif
 
 #ifdef CONFIG_FORCE_FAST_CHARGE
 	if (force_fast_charge >= 1) {
@@ -4401,9 +4400,9 @@ qpnp_chg_reduce_power_stage(struct qpnp_chg_chip *chip)
 		}
 	}
 
-	if (usb_present && target_usb_ma_above_wall) {
-		kt = ns_to_ktime(POWER_STAGE_REDUCE_CHECK_PERIOD_NS);
-		alarm_start_relative(&chip->reduce_power_stage_alarm, kt);
+	if (usb_present && usb_ma_above_wall) {
+		alarm_start_relative(&chip->reduce_power_stage_alarm, 
+				ns_to_ktime(POWER_STAGE_REDUCE_CHECK_PERIOD_NS));
 	} else {
 		pr_debug("stopping power stage workaround\n");
 		chip->power_stage_workaround_running = false;
